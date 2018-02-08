@@ -25,7 +25,7 @@
   },
   {
     "id"      : "remHI",
-    "label"   : "REMOVE HEARING IMPAIRED FORMATTED PARTS IN A SENTENCE",
+    "label"   : "REMOVE HEARING IMPAIRED FORMATING",
     "type"    : "bool",
     "default" : "true"
   },
@@ -37,7 +37,7 @@
   },
   {
     "id"      : "customFilters",
-    "label"   : "LIST OF WORDS THAT WILL FORCE A SENTENCE TO BE REMOVED {SEPARATED,BY,COMMAS)",
+    "label"   : "LIST OF WORDS THAT WILL FORCE A SENTENCE &lt;br/&gt; TO BE REMOVED {SEPARATED,BY,COMMAS)",
     "type"    : "text",
     "default" : "'http://','https://','www.','resync','synced','subtitles by','subtitles by','subbed','corrected by'"
   }
