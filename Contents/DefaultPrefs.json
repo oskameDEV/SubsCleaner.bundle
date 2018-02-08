@@ -1,0 +1,44 @@
+[
+  {
+    "id"      : "removeHTML",
+    "label"   : "STRIP LINES OF HTML TAGS",
+    "type"    : "bool",
+    "default" : "true"
+  },
+  {
+    "id"      : "removeDashes",
+    "label"   : "REMOVE DASHES IN FRONT OF LINES {COMMON IN DIALOGUE)",
+    "type"    : "bool",
+    "default" : "true"
+  },
+  {
+    "id"      : "allCaps",
+    "label"   : "CONVERT ALL LINES INTO ‘ALL CAPITALIZED’ TEXT",
+    "type"    : "bool",
+    "default" : "false"
+  },
+  {
+    "id"      : "fixCaps",
+    "label"   : "CONVERT ALL CAPS TEXT TO NORMAL CAPITALIZED TEXT",
+    "type"    : "bool",
+    "default" : "true"
+  },
+  {
+    "id"      : "remHI",
+    "label"   : "REMOVE HEARING IMPAIRED FORMATTED PARTS IN A SENTENCE",
+    "type"    : "bool",
+    "default" : "true"
+  },
+  {
+    "id"      : "remSym",
+    "label"   : "LIST SPECIFIC SYMBOLS TO BE REMOVED FROM SENTENCES",
+    "type"    : "text",
+    "default" : "'#', '~'"
+  },
+  {
+    "id"      : "customFilters",
+    "label"   : "LIST OF WORDS THAT WILL FORCE A SENTENCE TO BE REMOVED {SEPARATED,BY,COMMAS)",
+    "type"    : "text",
+    "default" : "'http://','https://','www.','resync','synced','subtitles by','subtitles by','subbed','corrected by'"
+  }
+]
