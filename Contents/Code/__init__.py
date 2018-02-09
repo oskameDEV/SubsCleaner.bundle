@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.91
+			# VERSION 0.92
 		#
 	#
 #
@@ -18,7 +18,7 @@ import codecs
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.91'
+PLUGIN_VERSION = '0.92'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -200,7 +200,7 @@ def cleanSubs(folder, file, MTYPE):
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
-								line = line.replace(sym, '')
+								subLine = subLine.replace(sym, '')
 						# IF ALL CAPS ENABLED
 						if allCaps:
 							subLine = subLine.upper()

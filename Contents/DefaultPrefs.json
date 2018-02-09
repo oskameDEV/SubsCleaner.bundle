@@ -12,16 +12,16 @@
     "default" : "true"
   },
   {
-    "id"      : "allCaps",
-    "label"   : "CONVERT ALL LINES INTO ‘ALL CAPITALIZED’ TEXT",
-    "type"    : "bool",
-    "default" : "false"
-  },
-  {
     "id"      : "fixCaps",
     "label"   : "CONVERT ALL CAPS TEXT TO NORMAL CAPITALIZED TEXT",
     "type"    : "bool",
     "default" : "true"
+  },
+  {
+    "id"      : "allCaps",
+    "label"   : "CONVERT ALL LINES INTO ‘ALL CAPITALIZED’ TEXT&lt;br/&gt;THIS IGNORES THE SETTING ABOVE",
+    "type"    : "bool",
+    "default" : "false"
   },
   {
     "id"      : "remHI",
@@ -39,6 +39,6 @@
     "id"      : "customFilters",
     "label"   : "LIST OF WORDS THAT WILL FORCE A SENTENCE &lt;br/&gt; TO BE REMOVED {SEPARATED,BY,COMMAS)",
     "type"    : "text",
-    "default" : "'http://','https://','www.','resync','synced','subtitles by','subtitles by','subbed','corrected by'"
+    "default" : "'http://','https://','www.','resync','synced','subtitles by','subbed'"
   }
 ]
