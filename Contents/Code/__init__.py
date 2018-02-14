@@ -256,8 +256,7 @@ def cleanSubs(folder, file, MTYPE):
 		#os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING
 
 		# IF FORCED UTF-8 IS ENABLED
-		if forceEnc:
-			enc = 'UTF-8'
+		enc = 'UTF-8'
 
 		# SAVE AS UTF-8 .SRT FILE
 		with codecs.open(target, 'w+', enc) as subFile:
