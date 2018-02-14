@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.92
+			# VERSION 0.94
 		#
 	#
 #
@@ -15,17 +15,19 @@ import os
 import io
 import re
 import codecs
+import chardet
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.92'
+PLUGIN_VERSION = '0.94'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
 removeHTML 		= Prefs['removeHTML']
 
 # REMOVE DASHES IN FRONT OF DIALOGUE. FOR EXAMPLE: "-Please, Izzi."
-removeDashes 	= Prefs['removeDashes']
+# NOW ALWAYS THROUGH "REMSYM"
+removeDashes 	= False
 
 # FIX ALL-CAPS SUBTITLES (MAKES THEM NORMAL CAPITALIZED)
 allCaps 		= Prefs['allCaps']
@@ -33,9 +35,15 @@ allCaps 		= Prefs['allCaps']
 # FIX ALL-CAPS SUBTITLES (MAKES THEM NORMAL CAPITALIZED)
 fixCaps 		= Prefs['fixCaps']
 
+# REMOVE MINOR PUNCTUATIONS
+remPunc 		= Prefs['remPunc']
+
 # :: TODO :: REMOVE SPECIFIC SYMBOLS FROM SENTENCES :: TODO ::
 remSym 			= Prefs['remSym']
 remSym 			= remSym.split(',')
+
+# FORCE UTF-8 ENCODING
+forceEnc		= Prefs['forceEnc']
 
 # IF FOLLOWING TEXT IS FOUND WITHIN A SUBTITLE, REMOVE SUBTITLE BLOCK
 # GOOD AGAINST SPAM OR ADS
@@ -144,21 +152,26 @@ def remHTML(HTML):
 # CLEAN SUBTITLE FILE
 def cleanSubs(folder, file, MTYPE):
 	# LOCATION OF FILE
-	target = folder+'/'+file
-	# SET PERMISSIONS SO THAT FILE CAN ACTUALLY BE SAVED BY THE AGENT
-	os.chmod(target, 0o777)
+	target   = folder+'/'+file
+
+	# DETECT .SRT FILE ENCODING
+	try:
+		with io.open(target, "rb") as f:
+			cnt = f.read()
+			enc = chardet.detect(cnt)
+			enc = enc['encoding']
+	except:
+		# FALLBACK TO UTF-8
+		enc = 'UTF-8'
 
 	# OPEN SUB FILE FOR SCRUBBING
 	try:
-		with io.open(target, 'r', encoding='UTF-8', errors='replace') as sourceFile:
+		# OPEN TARGET FILE WITH CORRECT ENCODING
+		with io.open(target, 'r', encoding=enc, errors='replace') as sourceFile:
 			data 	= sourceFile.read()
 			data 	= data.split('\n\n')
 	except:
-		Log(':: ERROR :: NOT UTF-8 ::')
-		# sourceFile  = io.open(target, 'r')
-		# # SAVE TO LIST
-		# data 		= sourceFile.read()
-		# data 		= data.split('\n\n')	# SPLIT DATA INTO SUBTITLE BLOCKS
+		Log(':: ERROR OPENING SUBS FILE ::')
 
 	if data:
 		# RESET VARS FOR EACH FILE
@@ -197,6 +210,13 @@ def cleanSubs(folder, file, MTYPE):
 
 					# ELSE JUST PROCESS NORMALLY
 					if not ignored:
+						# REMOVE SPACES BEFORE EACH SENTENCE
+						subLine = subLine.strip()
+						# REMOVE MINOR PUNCTUATIONS
+						if remPunc:
+							remPuncs = [',','.',':']
+							for p in remPuncs:
+								subLine = subLine.replace(p, '')
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
@@ -233,11 +253,15 @@ def cleanSubs(folder, file, MTYPE):
 		#
 
 		# BLOCKS DONE :: CLOSE AND SAVE CURRENT FILE
-		os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING (AT LEAST ON MACOS)
+		#os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING
+
+		# IF FORCED UTF-8 IS ENABLED
+		if forceEnc:
+			enc = 'UTF-8'
 
 		# SAVE AS UTF-8 .SRT FILE
-		with codecs.open(target, "w", "utf-8-sig") as subFile:
-			subFile.write(cleanData.encode('utf-8'))
+		with codecs.open(target, 'w+', enc) as subFile:
+			subFile.write(cleanData.encode(enc))
 		Log(':: SCRUBBED :: %s ::' % target.upper())
 
 ####################################################################################################
