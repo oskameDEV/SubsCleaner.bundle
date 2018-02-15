@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.94
+			# VERSION 0.95
 		#
 	#
 #
@@ -19,7 +19,7 @@ import chardet
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.94'
+PLUGIN_VERSION = '0.95'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -153,6 +153,7 @@ def remHTML(HTML):
 def cleanSubs(folder, file, MTYPE):
 	# LOCATION OF FILE
 	target   = folder+'/'+file
+	enc 	 = 'UTF-8'
 
 	# DETECT .SRT FILE ENCODING
 	try:
@@ -163,15 +164,22 @@ def cleanSubs(folder, file, MTYPE):
 	except:
 		# FALLBACK TO UTF-8
 		enc = 'UTF-8'
+		Log(':: DEFAULT ENCODING ::')
+	# SMALL FIX FOR OLDER VERIONS
+	if enc is 'UTF-8-SIG' or enc is 'ascii' or enc is None:
+		enc = 'UTF-8'
+		Log(':: DEFAULT ENCODING ::')
 
 	# OPEN SUB FILE FOR SCRUBBING
+	Log.Debug(':: ENCODING :: %s ::', enc)
 	try:
 		# OPEN TARGET FILE WITH CORRECT ENCODING
 		with io.open(target, 'r', encoding=enc, errors='replace') as sourceFile:
 			data 	= sourceFile.read()
 			data 	= data.split('\n\n')
+			#data 	= data.decode(enc)
 	except:
-		Log(':: ERROR OPENING SUBS FILE ::')
+		Log('/!\ :: ERROR OPENING SUBS FILE :: %s /!\\', target)
 
 	if data:
 		# RESET VARS FOR EACH FILE
@@ -210,8 +218,6 @@ def cleanSubs(folder, file, MTYPE):
 
 					# ELSE JUST PROCESS NORMALLY
 					if not ignored:
-						# REMOVE SPACES BEFORE EACH SENTENCE
-						subLine = subLine.strip()
 						# REMOVE MINOR PUNCTUATIONS
 						if remPunc:
 							remPuncs = [',','.',':']
@@ -232,6 +238,8 @@ def cleanSubs(folder, file, MTYPE):
 								subLine = subLine[1:]
 							else:
 								subLine = subLine
+						# REMOVE SPACES BEFORE EACH SENTENCE
+						subLine = subLine.strip()
 						# REMOVE DASHES IN FRONT OF LINES
 						if removeDashes:
 							if subLine.startswith('-') or subLine.startswith(' '):
@@ -241,7 +249,7 @@ def cleanSubs(folder, file, MTYPE):
 								cleanData += subLine+'\n'
 						else:
 							cleanData += subLine+'\n'
-			
+
 			# BLOCK DONE :: APPEND NEW LINE
 			cleanData += '\n'
 
@@ -256,11 +264,12 @@ def cleanSubs(folder, file, MTYPE):
 		#os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING
 
 		# IF FORCED UTF-8 IS ENABLED
-		enc = 'UTF-8'
+		if forceEnc:
+			enc = 'UTF-8'
 
 		# SAVE AS UTF-8 .SRT FILE
-		with codecs.open(target, 'w+', enc) as subFile:
-			subFile.write(cleanData.encode(enc))
+		with io.open(target, 'w+', encoding=enc, errors='replace') as subFile:
+			subFile.write(cleanData)
 		Log(':: SCRUBBED :: %s ::' % target.upper())
 
 ####################################################################################################
