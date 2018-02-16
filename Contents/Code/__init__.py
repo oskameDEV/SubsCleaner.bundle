@@ -3,24 +3,28 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.96
+			# VERSION 0.97
 		#
 	#
 #
 
 # :: IMPORTS ::
 from __future__ import with_statement
+from __future__ import unicode_literals
 import sys
 import os
 import io
+import subprocess
 import re
 import codecs
 import chardet
 import urllib
+import urllib2
+import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.96'
+PLUGIN_VERSION = '0.97'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -70,11 +74,12 @@ tldFilters 		= ['.film','.movie','.link','.biz','.cat','.com','.edu','.gov','.in
 customFilterPref = Prefs['customFilters'].split(',')
 customFilters 	 = []
 # GO THROUGH EACH AND DECODE ANY THAT HAVE BEEN ENCODED (DUE TO PLEX LIMITATION WITH CHARACTERS)
+filtersLog 		 = ''
 for kw in customFilterPref:
-	keyWord = urllib.unquote(kw.decode('ascii'))
-	customFilters.append(keyWord)
+	filtersLog += urllib2.unquote(kw.encode('ascii'))+', '
+	customFilters.append(urllib2.unquote(kw.encode('ascii')))
 if verbLog:
-	Log.Debug(':: FILTERS :: %s ::', customFilters)
+	Log.Debug(':: FILTERS :: %s ::', filtersLog)
 
 # REMOVE HEARING IMPAIRED LINES
 remHI 				= Prefs['remHI']
@@ -168,16 +173,29 @@ def cleanSubs(folder, file, MTYPE):
 	enc 	 = 'UTF-8'
 
 	# DETECT .SRT FILE ENCODING
+	# try:
+	# 	# ASSUME ENCODING BASED ON FILE NAMING
+	# 	lang = re.search(r"\.(\w+)\.srt", target)
+	# 	lang = lang.group(1)
+	# 	if lang:
+	# 		# LANGUAGE FOUND BEFORE EXTENTION
+	# except:
+	# 	lang = None
 	try:
 		with io.open(target, "rb") as f:
 			cnt = f.read()
 			enc = chardet.detect(cnt)
 			enc = enc['encoding']
 	except:
-		# FALLBACK TO UTF-8
-		enc = 'UTF-8'
+		try:
+			enc = subprocess.Popen("file --mime %s" % pipes.quote(target), shell=True, stdout=subprocess.PIPE).stdout.read()
+			enc = enc.split('=')
+			enc = enc[1].strip()
+		except:
+			# FALLBACK TO UTF-8
+			enc = 'UTF-8'
 	# SMALL FIX FOR OLDER VERIONS
-	if enc is 'utf-8-sig' or enc is 'ascii' or enc is None:
+	if enc is 'utf-8-sig' or enc is 'ascii' or 'unknown' in enc or enc is None:
 		enc = 'UTF-8'
 
 	# OPEN SUB FILE FOR SCRUBBING
@@ -185,16 +203,23 @@ def cleanSubs(folder, file, MTYPE):
 		Log.Debug(':: FILE ENCODING :: %s ::', enc)
 	try:
 		# OPEN TARGET FILE WITH CORRECT ENCODING
-		with io.open(target, 'r', encoding=enc, errors='replace') as sourceFile:
+		#enc = 'cp1251'
+		with codecs.open(target, 'U', encoding=enc, errors='replace') as sourceFile:
 			data 	= sourceFile.read()
-			data 	= data.split('\n\n')
+			data 	= data.split('\n\r')
+			#IF DATA IS ONLY 1 BLOCK, USE WINDOWS LINE SPLITS
+			if len(data) <= 1:
+				data 	= sourceFile.read()
+				data 	= data.split('\n\n')
 	except:
-		Log('/!\ :: ERROR OPENING SUBTITLE FILE :: %s /!\\', target)
+		Log('/!\ ERROR READING SUBTITLE FILE :: %s /!\\', target)
 
 	if data:
 		# RESET VARS FOR EACH FILE
 		cleanData 	= ''
 		ignored 	= False
+		if verbLog:
+			Log.Debug(':: TOTAL NUMBER OF SUBTITLE BLOCKS :: %s ::', len(data))
 
 		# PROCESS BLOCK BY BLOCK
 		for block in data:
@@ -227,15 +252,16 @@ def cleanSubs(folder, file, MTYPE):
 					# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
 					# CHECK TO SEE IF SENTENCE IN BLOCK CONTAINS A BLACKLISTED WORD
 					for fltr in subFilters:
+						# TRY TO DECODE POSSIBLE LANGUAGE SPECIFIC FILTER
 						if not ignored:
-							if fltr.lower() in line.lower():
+							if fltr.decode('utf-8').lower() in line.decode('utf-8').lower():
 								# EXCEPTIONS
 								# BUT NOT WITH .. OR ... DUE TO IT THINKING IT MIGHT BE A LTD/WEBSITE
-								#if '..' not in line and '...' not in line:
-								if verbLog:
-									Log.Debug(':: REMOVED {%s} BECAUSE OF {%s} ::', line.upper(), fltr.upper())
-								ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
-								cleanData += ' \n'
+								if '..' not in line and '...' not in line:
+									if verbLog:
+										Log.Debug(':: REMOVED {%s} BECAUSE OF {%s} ::', line.upper(), fltr.upper())
+									ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
+									cleanData += ' \n'
 
 					# ELSE JUST PROCESS NORMALLY AS A SENTENCE
 					if not ignored:
@@ -269,21 +295,15 @@ def cleanSubs(folder, file, MTYPE):
 								cleanData += subLine+'\n'
 						else:
 							cleanData += subLine+'\n'
+			# BLOCK DONE :: RESET IGNORED STATE FOR NEXT BLOCK
+			ignored = False
 
 			# BLOCK DONE :: APPEND NEW LINE
 			cleanData += '\n'
 
-			# BLOCK DONE :: RESET IGNORED STATE FOR NEXT BLOCK
-			ignored = False
-
 		#
 		# :: TODO :: CLEAN UP EMPTY LINES AT END OF FILE :: TODO ::
 		#
-
-		# BLOCKS DONE :: CLOSE AND SAVE CURRENT FILE
-		#os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING
-
-		Log('----------------------------------------------------------------------------------')
 
 		# IF FORCED UTF-8 IS ENABLED
 		if forceEnc:
@@ -293,6 +313,7 @@ def cleanSubs(folder, file, MTYPE):
 		with io.open(target, 'w+', encoding=enc, errors='replace') as subFile:
 			subFile.write(cleanData)
 		Log(':: SCRUBBED :: %s ::' % target.upper())
+		Log('----------------------------------------------------------------------------------')
 
 ####################################################################################################
 
