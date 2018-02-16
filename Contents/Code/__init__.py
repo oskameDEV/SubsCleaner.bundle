@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.95
+			# VERSION 0.96
 		#
 	#
 #
@@ -16,18 +16,18 @@ import io
 import re
 import codecs
 import chardet
+import urllib
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.95'
+PLUGIN_VERSION = '0.96'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
 removeHTML 		= Prefs['removeHTML']
 
 # REMOVE DASHES IN FRONT OF DIALOGUE. FOR EXAMPLE: "-Please, Izzi."
-# NOW ALWAYS THROUGH "REMSYM"
-removeDashes 	= False
+removeDashes 	= Prefs['removeDashes']
 
 # FIX ALL-CAPS SUBTITLES (MAKES THEM NORMAL CAPITALIZED)
 allCaps 		= Prefs['allCaps']
@@ -39,11 +39,14 @@ fixCaps 		= Prefs['fixCaps']
 remPunc 		= Prefs['remPunc']
 
 # :: TODO :: REMOVE SPECIFIC SYMBOLS FROM SENTENCES :: TODO ::
-remSym 			= Prefs['remSym']
-remSym 			= remSym.split(',')
+remSym 			= Prefs['remSym'].split(',')
+#remSym 			= remSym.split(',')
 
 # FORCE UTF-8 ENCODING
 forceEnc		= Prefs['forceEnc']
+
+# VERBOSE LOGGING
+verbLog			= Prefs['verbLog']
 
 # IF FOLLOWING TEXT IS FOUND WITHIN A SUBTITLE, REMOVE SUBTITLE BLOCK
 # GOOD AGAINST SPAM OR ADS
@@ -64,8 +67,14 @@ tldFilters 		= ['.film','.movie','.link','.biz','.cat','.com','.edu','.gov','.in
 '.ve','.vg','.vi','.vn','.vu','.wf','.ws','.ye','.yt','.yu','.za','.zm','.zr','.zw']
 
 # CUSTOM WORDS THAT WILL MAKE A SUBTITLE BLOCK BE REMOVED
-customFilters 		= Prefs['customFilters']
-customFilters		= customFilters.split(',')
+customFilterPref = Prefs['customFilters'].split(',')
+customFilters 	 = []
+# GO THROUGH EACH AND DECODE ANY THAT HAVE BEEN ENCODED (DUE TO PLEX LIMITATION WITH CHARACTERS)
+for kw in customFilterPref:
+	keyWord = urllib.unquote(kw.decode('ascii'))
+	customFilters.append(keyWord)
+if verbLog:
+	Log.Debug(':: FILTERS :: %s ::', customFilters)
 
 # REMOVE HEARING IMPAIRED LINES
 remHI 				= Prefs['remHI']
@@ -151,6 +160,9 @@ def remHTML(HTML):
 
 # CLEAN SUBTITLE FILE
 def cleanSubs(folder, file, MTYPE):
+	# LOG INDICATOR BETWEEN FILES FOR EASIER READING
+	Log('----------------------------------------------------------------------------------')
+
 	# LOCATION OF FILE
 	target   = folder+'/'+file
 	enc 	 = 'UTF-8'
@@ -164,80 +176,88 @@ def cleanSubs(folder, file, MTYPE):
 	except:
 		# FALLBACK TO UTF-8
 		enc = 'UTF-8'
-		Log(':: DEFAULT ENCODING ::')
 	# SMALL FIX FOR OLDER VERIONS
-	if enc is 'UTF-8-SIG' or enc is 'ascii' or enc is None:
+	if enc is 'utf-8-sig' or enc is 'ascii' or enc is None:
 		enc = 'UTF-8'
-		Log(':: DEFAULT ENCODING ::')
 
 	# OPEN SUB FILE FOR SCRUBBING
-	Log.Debug(':: ENCODING :: %s ::', enc)
+	if verbLog:
+		Log.Debug(':: FILE ENCODING :: %s ::', enc)
 	try:
 		# OPEN TARGET FILE WITH CORRECT ENCODING
 		with io.open(target, 'r', encoding=enc, errors='replace') as sourceFile:
 			data 	= sourceFile.read()
 			data 	= data.split('\n\n')
-			#data 	= data.decode(enc)
 	except:
-		Log('/!\ :: ERROR OPENING SUBS FILE :: %s /!\\', target)
+		Log('/!\ :: ERROR OPENING SUBTITLE FILE :: %s /!\\', target)
 
 	if data:
 		# RESET VARS FOR EACH FILE
 		cleanData 	= ''
 		ignored 	= False
-		
+
 		# PROCESS BLOCK BY BLOCK
 		for block in data:
 			# PROCESS EVERY LINE
 			for line in block.splitlines():
 				subLine = line
-				# REMOVE HTML TAGS FROM SUBTITLE
-				if removeHTML:
-					subLine = remHTML(line)
-				# FIX SUBTITLES THAT ARE IN ALL CAPS
-				if fixCaps:
-					subLine = subLine.capitalize()
-
 				# LEAVE INTACT IF LINE IS JUST A NUMBER OR TIMESTAMP
 				if (subLine.isdigit()) or (re.match('\d{2}:\d{2}:\d{2}', subLine)):
 					cleanData += subLine+'\n'
-
-				# ELSE PROCESS SUBTITLE LINE AS SENTENCE
+					# SKIP TO NEXT LINE
 				else:
-					# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
-					for line in block.splitlines():
-						# CHECK TO SEE IF SENTENCE IN BLOCK CONTAINS A BLACKLISTED WORD
-						for fltr in subFilters:
-							if not ignored:
-								if fltr.lower() in line.lower():
-									# EXCEPTIONS
-									if '..' not in line and '...' not in line:
-										Log.Debug(':: IGNORING BLOCK BECAUSE OF {%s} FILTERED BY {%s} ::', line.upper(), fltr.upper())
-										ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
-										cleanData += ' '
+					# REMOVE HTML TAGS FROM SUBTITLE
+					if removeHTML:
+						subLine = remHTML(subLine)
+					# FIX SUBTITLES THAT ARE IN ALL CAPS
+					if fixCaps:
+						subLine = subLine.capitalize()
+					# IF ALL CAPS ENABLED
+					if allCaps:
+						subLine = subLine.upper()
+					# REMOVE HEARING IMPAIRED CAPTIONS
+					if remHI:
+						subLine =  re.sub("[\(\[].*?[\)\]]", "", subLine)
+						# REMOVE FIRST SPACE IF PRESENT
+						if subLine[:1] is ' ':
+							subLine = subLine[1:]
+						else:
+							subLine = subLine
 
-					# ELSE JUST PROCESS NORMALLY
+					# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
+					# CHECK TO SEE IF SENTENCE IN BLOCK CONTAINS A BLACKLISTED WORD
+					for fltr in subFilters:
+						if not ignored:
+							if fltr.lower() in line.lower():
+								# EXCEPTIONS
+								# BUT NOT WITH .. OR ... DUE TO IT THINKING IT MIGHT BE A LTD/WEBSITE
+								#if '..' not in line and '...' not in line:
+								if verbLog:
+									Log.Debug(':: REMOVED {%s} BECAUSE OF {%s} ::', line.upper(), fltr.upper())
+								ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
+								cleanData += ' \n'
+
+					# ELSE JUST PROCESS NORMALLY AS A SENTENCE
 					if not ignored:
 						# REMOVE MINOR PUNCTUATIONS
 						if remPunc:
 							remPuncs = [',','.',':']
+							# LOGGIN
+							#if ',' in subLine or '.' in subLine or ':' in subLine:
+								#if verbLog:
+									#Log.Debug(':: REMOVED MINOR PUNCTUATIONS ::')
 							for p in remPuncs:
 								subLine = subLine.replace(p, '')
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
-								subLine = subLine.replace(sym, '')
-						# IF ALL CAPS ENABLED
-						if allCaps:
-							subLine = subLine.upper()
-						# REMOVE HEARING IMPAIRED CAPTIONS
-						if remHI:
-							subLine =  re.sub("[\(\[].*?[\)\]]", "", subLine)
-							# REMOVE FIRST SPACE IF PRESENT
-							if subLine[:1] is ' ':
-								subLine = subLine[1:]
-							else:
-								subLine = subLine
+								# ATTEMPT TO CONVERT KEYWORD TO ENCODE LANGUAGE 
+								# try: 
+								# except:
+								if sym in subLine:
+									if verbLog:
+										Log.Debug(':: REMOVED %s FROM %s ::', sym, subLine)
+									subLine = subLine.replace(sym, '')	
 						# REMOVE SPACES BEFORE EACH SENTENCE
 						subLine = subLine.strip()
 						# REMOVE DASHES IN FRONT OF LINES
@@ -262,6 +282,8 @@ def cleanSubs(folder, file, MTYPE):
 
 		# BLOCKS DONE :: CLOSE AND SAVE CURRENT FILE
 		#os.remove(target) # REMOVE ORIGINAL ENSURES CORRECT SAVING
+
+		Log('----------------------------------------------------------------------------------')
 
 		# IF FORCED UTF-8 IS ENABLED
 		if forceEnc:

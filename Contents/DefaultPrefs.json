@@ -13,7 +13,7 @@
   },
   {
     "id"      : "fixCaps",
-    "label"   : "CONVERT ALL CAPS TEXT TO 'Normal Capitalized' TEXT",
+    "label"   : "CONVERT ALL CAPS TEXT TO 'Normal capitalized' TEXT",
     "type"    : "bool",
     "default" : "true"
   },
@@ -43,13 +43,19 @@
   },
   {
     "id"      : "customFilters",
-    "label"   : "LIST OF WORDS THAT WILL FORCE A SENTENCE TO BE REMOVED {SEPARATED,BY,COMMAS)",
+    "label"   : "LIST OF WORDS THAT WILL FORCE SENTENCE TO BE REMOVED\n\nDue to a limitation in Plex it's impossible to save any accents into a preference field.\n\nYou will need to convert any word or special symbol (the entire keyword is fine)\n\nUse this simple converter to do so: https://is.gd/0subs",
     "type"    : "text",
     "default" : "'%URL%',http://','https://','www.','resync','synced','subtitled by','subtitles by','subbed','corrected by','[sync]','release group'"
   },
   {
     "id"      : "forceEnc",
     "label"   : "ALWAYS SAVE FILES WITH UTF-8 ENCODING",
+    "type"    : "bool",
+    "default" : "false"
+  },
+    {
+    "id"      : "verbLog",
+    "label"   : "ENABLE MORE VERBOSE LOGGING",
     "type"    : "bool",
     "default" : "false"
   }
