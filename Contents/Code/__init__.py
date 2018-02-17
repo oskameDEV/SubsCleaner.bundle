@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.97
+			# VERSION 0.977
 		#
 	#
 #
@@ -24,7 +24,7 @@ import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.97'
+PLUGIN_VERSION = '0.977'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -195,7 +195,9 @@ def cleanSubs(folder, file, MTYPE):
 			# FALLBACK TO UTF-8
 			enc = 'UTF-8'
 	# SMALL FIX FOR OLDER VERIONS
-	if enc is 'utf-8-sig' or enc is 'ascii' or 'unknown' in enc or enc is None:
+	if enc is None:
+		enc = 'UTF-8'
+	if 'unknown' in enc:
 		enc = 'UTF-8'
 
 	# OPEN SUB FILE FOR SCRUBBING
@@ -203,18 +205,18 @@ def cleanSubs(folder, file, MTYPE):
 		Log.Debug(':: FILE ENCODING :: %s ::', enc)
 	try:
 		# OPEN TARGET FILE WITH CORRECT ENCODING
-		#enc = 'cp1251'
-		with codecs.open(target, 'U', encoding=enc, errors='replace') as sourceFile:
-			data 	= sourceFile.read()
-			data 	= data.split('\n\r')
-			#IF DATA IS ONLY 1 BLOCK, USE WINDOWS LINE SPLITS
-			if len(data) <= 1:
-				data 	= sourceFile.read()
-				data 	= data.split('\n\n')
+		with codecs.open(target, 'rU', encoding=enc, errors='replace') as sourceFile:
+			dataRAW	= sourceFile.read()
+			data 	= dataRAW.split('\n\n')
+			# IF DATA IS ONLY 1 BLOCK, TRY DIFFERENT LINE-ENDINGS TILL SPLIT WORKS
+			if len(data) is 1:
+				data 	= dataRAW.split('\r\n')
+			if len(data) is 1:
+				data 	= dataRAW.split(os.linesep + os.linesep)
 	except:
 		Log('/!\ ERROR READING SUBTITLE FILE :: %s /!\\', target)
 
-	if data:
+	if data and len(data) > 1:
 		# RESET VARS FOR EACH FILE
 		cleanData 	= ''
 		ignored 	= False
@@ -301,10 +303,6 @@ def cleanSubs(folder, file, MTYPE):
 			# BLOCK DONE :: APPEND NEW LINE
 			cleanData += '\n'
 
-		#
-		# :: TODO :: CLEAN UP EMPTY LINES AT END OF FILE :: TODO ::
-		#
-
 		# IF FORCED UTF-8 IS ENABLED
 		if forceEnc:
 			enc = 'UTF-8'
@@ -314,6 +312,8 @@ def cleanSubs(folder, file, MTYPE):
 			subFile.write(cleanData)
 		Log(':: SCRUBBED :: %s ::' % target.upper())
 		Log('----------------------------------------------------------------------------------')
+	else:
+		Log('/!\ COULD NOT PROCESS :: %s /!\\', target)
 
 ####################################################################################################
 
