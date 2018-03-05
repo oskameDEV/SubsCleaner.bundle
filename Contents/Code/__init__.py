@@ -326,7 +326,7 @@ def cleanSubs(folder, file, MTYPE):
 		# SAVE AS UTF-8 .SRT FILE
 		# 
 		if isinstance(cleanData, str):
-        	cleanData.encode(enc)
+			cleanData.encode(enc)
 		with io.open(target, 'w+', encoding=enc, errors='replace') as subFile:
 			subFile.write(cleanData)
 		Log(':: SCRUBBED :: %s ::' % target.upper())
