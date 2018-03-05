@@ -25,7 +25,7 @@
   },
   {
     "id"      : "remPunc",
-    "label"   : "REMOVE MINOR PUNCTUATIONS (, . :)",
+    "label"   : "REMOVE MINOR PUNCTUATIONS (, .)",
     "type"    : "bool",
     "default" : "false"
   },

@@ -3,7 +3,7 @@
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
 				# BY [OK] KITSUNE.WORK - 2018
-			# VERSION 0.977
+			# 
 		#
 	#
 #
@@ -24,7 +24,7 @@ import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.977'
+PLUGIN_VERSION = '0.98'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -171,6 +171,7 @@ def cleanSubs(folder, file, MTYPE):
 	# LOCATION OF FILE
 	target   = folder+'/'+file
 	enc 	 = 'UTF-8'
+	OS 		 = 'UNIX'
 
 	# DETECT .SRT FILE ENCODING
 	# try:
@@ -207,12 +208,17 @@ def cleanSubs(folder, file, MTYPE):
 		# OPEN TARGET FILE WITH CORRECT ENCODING
 		with codecs.open(target, 'rU', encoding=enc, errors='replace') as sourceFile:
 			dataRAW	= sourceFile.read()
-			data 	= dataRAW.split('\n\n')
+			data 	= dataRAW.split('\n\n') # SPLIT AS A SUBTITLE BLOCK (UNIX)
+			OS 		= 'UNIX'
 			# IF DATA IS ONLY 1 BLOCK, TRY DIFFERENT LINE-ENDINGS TILL SPLIT WORKS
 			if len(data) is 1:
-				data 	= dataRAW.split('\r\n')
+				data 	= dataRAW.split('\r\n') # WINDOWS
+				OS 		= 'WIN'
 			if len(data) is 1:
 				data 	= dataRAW.split(os.linesep + os.linesep)
+				OS 		= 'UNIX' # MEANS STANDARD HERE
+			if verbLog:
+				Log(':: ORIGINAL FORMATTING :: %s ::', OS)
 	except:
 		Log('/!\ ERROR READING SUBTITLE FILE :: %s /!\\', target)
 
@@ -225,63 +231,62 @@ def cleanSubs(folder, file, MTYPE):
 
 		# PROCESS BLOCK BY BLOCK
 		for block in data:
-			# PROCESS EVERY LINE
-			for line in block.splitlines():
+			blockLines = block.splitlines()
+			curLine = 0
+			# PRE-CHECK TO SEE IF ENTIRE BLOCK HAS TO BE REMOVED
+			# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
+			for line in blockLines:
 				subLine = line
-				# LEAVE INTACT IF LINE IS JUST A NUMBER OR TIMESTAMP
-				if (subLine.isdigit()) or (re.match('\d{2}:\d{2}:\d{2}', subLine)):
-					cleanData += subLine+'\n'
-					# SKIP TO NEXT LINE
-				else:
-					# REMOVE HTML TAGS FROM SUBTITLE
-					if removeHTML:
-						subLine = remHTML(subLine)
-					# FIX SUBTITLES THAT ARE IN ALL CAPS
-					if fixCaps:
-						subLine = subLine.capitalize()
-					# IF ALL CAPS ENABLED
-					if allCaps:
-						subLine = subLine.upper()
-					# REMOVE HEARING IMPAIRED CAPTIONS
-					if remHI:
-						subLine =  re.sub("[\(\[].*?[\)\]]", "", subLine)
-						# REMOVE FIRST SPACE IF PRESENT
-						if subLine[:1] is ' ':
-							subLine = subLine[1:]
-						else:
-							subLine = subLine
-
-					# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
-					# CHECK TO SEE IF SENTENCE IN BLOCK CONTAINS A BLACKLISTED WORD
-					for fltr in subFilters:
-						# TRY TO DECODE POSSIBLE LANGUAGE SPECIFIC FILTER
-						if not ignored:
-							if fltr.decode('utf-8').lower() in line.decode('utf-8').lower():
-								# EXCEPTIONS
-								# BUT NOT WITH .. OR ... DUE TO IT THINKING IT MIGHT BE A LTD/WEBSITE
-								if '..' not in line and '...' not in line:
-									if verbLog:
-										Log.Debug(':: REMOVED {%s} BECAUSE OF {%s} ::', line.upper(), fltr.upper())
-									ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
-									cleanData += ' \n'
-
-					# ELSE JUST PROCESS NORMALLY AS A SENTENCE
+				for fltr in subFilters:
 					if not ignored:
+						if fltr.decode('utf-8').lower() in subLine.decode('utf-8').lower():
+							# EXCEPTIONS
+							# BUT NOT WITH .. OR ... DUE TO IT THINKING IT MIGHT BE A LTD/WEBSITE
+							# CHECK FOR '../...' SO THAT IT DOESNT MISTAKE '..ISN'T IT LOVELY' FOR '.IS' (DOMAIN EXT.)
+							if '..' not in subLine and '...' not in subLine:
+								if verbLog:
+									Log.Debug(':: REMOVED BLOCK WITH {%s} BECAUSE OF {%s} ::', subLine.upper(), fltr.upper())
+								ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
+			if ignored:
+				continue
+			# PROCESS EVERY NORMAL LINE FOR BLOCKS THAT ARE NOT IGNORED
+			else:
+				for line in blockLines:
+					subLine = line
+					curLine += 1
+					# LEAVE INTACT IF LINE IS JUST A NUMBER OR TIMESTAMP
+					if (subLine.isdigit()) or (re.match('\d{2}:\d{2}:\d{2}', subLine)):
+						if OS is 'UNIX':
+							cleanData += subLine+'\n'
+						else:
+							cleanData += subLine+'\r'
+					else:
+						# REMOVE HTML TAGS FROM SUBTITLE
+						if removeHTML:
+							subLine = remHTML(subLine)
+						# FIX SUBTITLES THAT ARE IN ALL CAPS
+						if fixCaps:
+							subLine = subLine.capitalize()
+						# IF ALL CAPS ENABLED
+						if allCaps:
+							subLine = subLine.upper()
+						# REMOVE HEARING IMPAIRED CAPTIONS
+						if remHI:
+							subLine =  re.sub("[\(\[].*?[\)\]]", "", subLine)
+							# REMOVE FIRST SPACE IF PRESENT
+							if subLine[:1] is ' ':
+								subLine = subLine[1:]
+							else:
+								subLine = subLine
 						# REMOVE MINOR PUNCTUATIONS
 						if remPunc:
-							remPuncs = [',','.',':']
-							# LOGGIN
-							#if ',' in subLine or '.' in subLine or ':' in subLine:
-								#if verbLog:
-									#Log.Debug(':: REMOVED MINOR PUNCTUATIONS ::')
+							remPuncs = [',','.']
 							for p in remPuncs:
 								subLine = subLine.replace(p, '')
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
 								# ATTEMPT TO CONVERT KEYWORD TO ENCODE LANGUAGE 
-								# try: 
-								# except:
 								if sym in subLine:
 									if verbLog:
 										Log.Debug(':: REMOVED %s FROM %s ::', sym, subLine)
@@ -292,22 +297,36 @@ def cleanSubs(folder, file, MTYPE):
 						if removeDashes:
 							if subLine.startswith('-') or subLine.startswith(' '):
 								# REMOVE FIRST APPEARANCE OF '-' AND/OR EMPTY SPACE FROM LINE
-								cleanData += subLine[1:]+'\n'
+								if curLine < len(blockLines):
+									cleanData += subLine[1:]+os.linesep
+								else:
+									cleanData += subLine[1:]
 							else:
-								cleanData += subLine+'\n'
+								if curLine < len(blockLines):
+									cleanData += subLine+os.linesep
+								else:
+									cleanData += subLine
 						else:
-							cleanData += subLine+'\n'
+							if curLine < len(blockLines):
+								cleanData += subLine+os.linesep
+							else:
+								cleanData += subLine
 			# BLOCK DONE :: RESET IGNORED STATE FOR NEXT BLOCK
 			ignored = False
 
 			# BLOCK DONE :: APPEND NEW LINE
-			cleanData += '\n'
+			cleanData += os.linesep
 
 		# IF FORCED UTF-8 IS ENABLED
-		if forceEnc:
+		if forceEnc or 'ascii' in enc:
 			enc = 'UTF-8'
+			if verbLog:
+				Log(':: FORCED UTF-8 ENCODING ::')
 
 		# SAVE AS UTF-8 .SRT FILE
+		# 
+		if isinstance(cleanData, str):
+        	cleanData.encode(enc)
 		with io.open(target, 'w+', encoding=enc, errors='replace') as subFile:
 			subFile.write(cleanData)
 		Log(':: SCRUBBED :: %s ::' % target.upper())
