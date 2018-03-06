@@ -24,7 +24,7 @@ import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.98'
+PLUGIN_VERSION = '0.985'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -87,9 +87,6 @@ remHI 				= Prefs['remHI']
 # COMBINE LISTS
 subFilters 			= tldFilters + customFilters
 
-# :: NOT CONFIGURABLE YET ::
-fileTypes 			= ['.srt']
-
 ####################################################################################################
 
 def Start():
@@ -123,12 +120,14 @@ class SubsCleanerAgent(object):
 				score = 100
 			))
 
+
 	def update(self, results, media, lang):
 		# MOVIES
 		if self.agent_type is "MOVIES":
-			for i in media.items:
-				for part in i.parts:
-					processFILES(part, 'MOVIE')
+			part = media.items[0].parts[0]
+			filename = part.file
+			Log(':: MEDIA ITEM :: %s ::', filename)
+			processFILES(part, 'MOVIE')
 
 		# SERIES
 		else:
@@ -144,16 +143,22 @@ class SubsCleanerAgent(object):
 # PROCESS FILES IN DIRECTORY
 def processFILES(part, MTYPE):
 	# CURRENT MEDIA
-	mediaFile = part.file.decode('utf-8')
+	mediaFile = part.file.decode('utf-8').lower()
+	fileExt   = os.path.splitext(os.path.basename(mediaFile))
+	# FILENAMES FOR COMPARISON
+	#lookingFor = mediaFile.replace(fileExt[1], '')
+
 	# IT'S DIRECTORY
 	mediaDir = os.path.dirname(mediaFile).decode('utf-8')
 	for root, dirs, files in os.walk(mediaDir, topdown=False):
 		# GO THROUGH EACH FILE IN FOLDER
 		for file in files:
-			# MAKE SURE IT IS AN ALLOWED FILETYPE
-			if '.srt' in str(file):
-				# PROCESS EACH SUBTITLE
-				cleanSubs(mediaDir, file, MTYPE)
+			# ONLY PROCESS FILES ASSOCIATED WITH MOVIE OR TVSHOW EPISODE
+			if fileExt[0] in file.lower():
+				# MAKE SURE IT IS AN ALLOWED FILETYPE
+				if str(file).lower().endswith('.srt'):
+					# PROCESS EACH SUBTITLE
+					cleanSubs(mediaDir, file, MTYPE)
 
 # :: SUBTITLES CLEANER ::
 # REMOVE HTML TAGS

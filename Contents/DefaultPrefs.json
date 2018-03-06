@@ -7,13 +7,13 @@
   },
   {
     "id"      : "allCaps",
-    "label"   : "CONVERT ALL LINES INTO 'ALL CAPITALIZED' TEXT",
+    "label"   : "CONVERT ALL TEXT INTO 'ALL CAPS'",
     "type"    : "bool",
     "default" : "false"
   },
   {
     "id"      : "fixCaps",
-    "label"   : "CONVERT ALL CAPS TEXT TO 'Normal capitalized' TEXT",
+    "label"   : "CONVERT ALL TEXT TO 'Normal capitalization'",
     "type"    : "bool",
     "default" : "true"
   },
