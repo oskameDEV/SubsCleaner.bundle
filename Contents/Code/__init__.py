@@ -24,7 +24,7 @@ import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.985'
+PLUGIN_VERSION = '0.988'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -44,7 +44,6 @@ remPunc 		= Prefs['remPunc']
 
 # :: TODO :: REMOVE SPECIFIC SYMBOLS FROM SENTENCES :: TODO ::
 remSym 			= Prefs['remSym'].split(',')
-#remSym 			= remSym.split(',')
 
 # FORCE UTF-8 ENCODING
 forceEnc		= Prefs['forceEnc']
@@ -56,7 +55,7 @@ verbLog			= Prefs['verbLog']
 # GOOD AGAINST SPAM OR ADS
 # DOMAIN LIST BELOW IS THE BEST WAY TO HAVE THOSE REMOVED, BUT MIGHT VERY RARELY CAUSE A PIECE OF DIALOGUE TO BE REMOVED
 # IF YOU WORRY ABOUT THIS JUST ADD A '#' IN FRONT OF THIS LIST TO COMMENT IT OUT
-tldFilters 		= ['.film','.movie','.link','.biz','.cat','.com','.edu','.gov','.info','.int','.jobs','.mil','.mobi',
+tldFilters 		= ['http://','www.','.film','.movie','.link','.biz','.cat','.com','.edu','.gov','.info','.int','.jobs','.mil','.mobi',
 '.name','.net','.org','.ac','.ad','.ae','.af','.ag','.ai','.al','.am','.an','.ao','.aq','.ar','.as','.at','.au','.aw',
 '.az','.ba','.bb','.bd','.be','.bf','.bg','.bh','.bi','.bj','.bm','.bn','.bo','.br','.bs','.bt','.bv','.bw','.by','.bz','.ca',
 '.cc','.cd','.cf','.cg','.ch','.ci','.ck','.cl','.cm','.cn','.co','.cr','.cs','.cu','.cv','.cx','.cy','.cz','.de','.dj','.dk','.dm',
@@ -126,7 +125,6 @@ class SubsCleanerAgent(object):
 		if self.agent_type is "MOVIES":
 			part = media.items[0].parts[0]
 			filename = part.file
-			Log(':: MEDIA ITEM :: %s ::', filename)
 			processFILES(part, 'MOVIE')
 
 		# SERIES
@@ -170,23 +168,14 @@ def remHTML(HTML):
 
 # CLEAN SUBTITLE FILE
 def cleanSubs(folder, file, MTYPE):
-	# LOG INDICATOR BETWEEN FILES FOR EASIER READING
-	Log('----------------------------------------------------------------------------------')
+	Log('----------------------------------------------------------------------------------') # LOG INDICATOR BETWEEN FILES FOR EASIER READING
 
 	# LOCATION OF FILE
 	target   = folder+'/'+file
+	data     = ''
 	enc 	 = 'UTF-8'
 	OS 		 = 'UNIX'
 
-	# DETECT .SRT FILE ENCODING
-	# try:
-	# 	# ASSUME ENCODING BASED ON FILE NAMING
-	# 	lang = re.search(r"\.(\w+)\.srt", target)
-	# 	lang = lang.group(1)
-	# 	if lang:
-	# 		# LANGUAGE FOUND BEFORE EXTENTION
-	# except:
-	# 	lang = None
 	try:
 		with io.open(target, "rb") as f:
 			cnt = f.read()
@@ -200,7 +189,6 @@ def cleanSubs(folder, file, MTYPE):
 		except:
 			# FALLBACK TO UTF-8
 			enc = 'UTF-8'
-	# SMALL FIX FOR OLDER VERIONS
 	if enc is None:
 		enc = 'UTF-8'
 	if 'unknown' in enc:
@@ -211,60 +199,53 @@ def cleanSubs(folder, file, MTYPE):
 		Log.Debug(':: FILE ENCODING :: %s ::', enc)
 	try:
 		# OPEN TARGET FILE WITH CORRECT ENCODING
-		with codecs.open(target, 'rU', encoding=enc, errors='replace') as sourceFile:
+		with codecs.open(target, 'U', encoding=enc, errors='replace') as sourceFile:
 			dataRAW	= sourceFile.read()
-			data 	= dataRAW.split('\n\n') # SPLIT AS A SUBTITLE BLOCK (UNIX)
-			OS 		= 'UNIX'
-			# IF DATA IS ONLY 1 BLOCK, TRY DIFFERENT LINE-ENDINGS TILL SPLIT WORKS
-			if len(data) is 1:
-				data 	= dataRAW.split('\r\n') # WINDOWS
-				OS 		= 'WIN'
-			if len(data) is 1:
-				data 	= dataRAW.split(os.linesep + os.linesep)
-				OS 		= 'UNIX' # MEANS STANDARD HERE
+			if '\r\n' in dataRAW:
+				OS = 'DOS' # DOS
+				data = dataRAW.split('\r\n\r\n')
+			else:
+				OS = 'UNIX'
+				data = dataRAW.split('\n\n')
 			if verbLog:
-				Log(':: ORIGINAL FORMATTING :: %s ::', OS)
+				Log(':: ORIGINAL FILE FORMATTING :: %s ::', OS)
 	except:
 		Log('/!\ ERROR READING SUBTITLE FILE :: %s /!\\', target)
 
-	if data and len(data) > 1:
-		# RESET VARS FOR EACH FILE
+	if len(data) > 1:
 		cleanData 	= ''
-		ignored 	= False
+		skipBlock 	= False
+
 		if verbLog:
 			Log.Debug(':: TOTAL NUMBER OF SUBTITLE BLOCKS :: %s ::', len(data))
 
 		# PROCESS BLOCK BY BLOCK
 		for block in data:
 			blockLines = block.splitlines()
-			curLine = 0
-			# PRE-CHECK TO SEE IF ENTIRE BLOCK HAS TO BE REMOVED
-			# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES FILTER LIST
-			for line in blockLines:
-				subLine = line
-				for fltr in subFilters:
-					if not ignored:
-						if fltr.decode('utf-8').lower() in subLine.decode('utf-8').lower():
-							# EXCEPTIONS
-							# BUT NOT WITH .. OR ... DUE TO IT THINKING IT MIGHT BE A LTD/WEBSITE
-							# CHECK FOR '../...' SO THAT IT DOESNT MISTAKE '..ISN'T IT LOVELY' FOR '.IS' (DOMAIN EXT.)
-							if '..' not in subLine and '...' not in subLine:
-								if verbLog:
-									Log.Debug(':: REMOVED BLOCK WITH {%s} BECAUSE OF {%s} ::', subLine.upper(), fltr.upper())
-								ignored = True # WILL NOT ADD THIS ENTIRE BLOCK
-			if ignored:
-				continue
-			# PROCESS EVERY NORMAL LINE FOR BLOCKS THAT ARE NOT IGNORED
+			curLine    = 0
+			if OS is 'DOS':
+				wholeBlock = block.replace('\r\n', ' ')
 			else:
+				wholeBlock = block.replace('\n', ' ')
+
+			# PRE-CHECK TO SEE IF ENTIRE BLOCK HAS TO BE REMOVED OR NOT
+			 	# CHECK IF ANY PART OF THE TEXT IN BLOCK MATCHES SOMETHING IN FILTER LIST
+			for fltr in subFilters:
+				if fltr.decode('utf-8').lower() in wholeBlock.decode('utf-8').lower():
+					# CHECK FOR '../...' SO NOT TO MISTAKE '..ISN'T IT LOVELY' FOR '.IS' (DOMAIN EXT.)
+					if '..' not in wholeBlock and '...' not in wholeBlock:
+						if verbLog:
+							Log.Debug(':: REMOVED BLOCK WITH {%s} BECAUSE OF {%s} ::', block.upper(), fltr.upper())
+						skipBlock = True
+
+			# PRE-CHECK DONE <> PROCESS EVERY LINE FOR BLOCK THAT IS NOT FLAGGED
+			if not skipBlock:
 				for line in blockLines:
 					subLine = line
 					curLine += 1
 					# LEAVE INTACT IF LINE IS JUST A NUMBER OR TIMESTAMP
 					if (subLine.isdigit()) or (re.match('\d{2}:\d{2}:\d{2}', subLine)):
-						if OS is 'UNIX':
-							cleanData += subLine+'\n'
-						else:
-							cleanData += subLine+'\r'
+						cleanData += subLine+os.linesep
 					else:
 						# REMOVE HTML TAGS FROM SUBTITLE
 						if removeHTML:
@@ -285,9 +266,13 @@ def cleanSubs(folder, file, MTYPE):
 								subLine = subLine
 						# REMOVE MINOR PUNCTUATIONS
 						if remPunc:
-							remPuncs = [',','.']
-							for p in remPuncs:
-								subLine = subLine.replace(p, '')
+							# REMOVE ALL COMMAS
+							subLine = subLine.replace(',', '')
+							# REMOVE '.' AT END OF SENTENCES
+							if subLine.endswith('.'):
+								subLine = subLine[:-len('.')]
+
+
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
@@ -307,7 +292,7 @@ def cleanSubs(folder, file, MTYPE):
 								else:
 									cleanData += subLine[1:]
 							else:
-								if curLine < len(blockLines):
+								if curLine < len(blockLines): # ADD AS NEW LINE AS LONG AS THIS LIST ISN'T THE LAST IN THE BLOCK
 									cleanData += subLine+os.linesep
 								else:
 									cleanData += subLine
@@ -315,26 +300,28 @@ def cleanSubs(folder, file, MTYPE):
 							if curLine < len(blockLines):
 								cleanData += subLine+os.linesep
 							else:
-								cleanData += subLine
-			# BLOCK DONE :: RESET IGNORED STATE FOR NEXT BLOCK
-			ignored = False
+								cleanData += subLine			
+				# :: APPEND LINE BETWEEN NEXT BLOCK
+				cleanData += os.linesep+os.linesep
+			# IF BLOCK WAS REMOVED ADD EMPTY BLOCK TO KEEP FORMATTING CORRECT
+			else:
+				cleanData += blockLines[0]+os.linesep+blockLines[1]+os.linesep+' '+os.linesep
 
-			# BLOCK DONE :: APPEND NEW LINE
-			cleanData += os.linesep
-
-		# IF FORCED UTF-8 IS ENABLED
-		if forceEnc or 'ascii' in enc:
+			# RESET IGNORED STATE FOR NEXT BLOCK
+			skipBlock = False
+		# BLOCKS PROCESSED -- SAVE FILE
+		# IF FORCED UTF-8 IS ENABLED OR ENCODING IS ASCII
+		if forceEnc or 'ascii' in enc or 'SIG' in enc:
 			enc = 'UTF-8'
 			if verbLog:
 				Log(':: FORCED UTF-8 ENCODING ::')
-
-		# SAVE AS UTF-8 .SRT FILE
-		# 
+		# MAKE SURE CLEANDATA CAN BE WRITTEN
 		if isinstance(cleanData, str):
-			cleanData.encode(enc)
+			cleanData = cleanData.decode(enc)
+		# SAVE BACK TO ORIGINAL .SRT FILE
 		with io.open(target, 'w+', encoding=enc, errors='replace') as subFile:
 			subFile.write(cleanData)
-		Log(':: SCRUBBED :: %s ::' % target.upper())
+		Log(':: SCRUBBED :: %s :: %s', target.upper(), len(cleanData))
 		Log('----------------------------------------------------------------------------------')
 	else:
 		Log('/!\ COULD NOT PROCESS :: %s /!\\', target)
