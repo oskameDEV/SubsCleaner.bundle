@@ -1,9 +1,9 @@
 # SubsCleaner.bundle
 A Plex agent that removes nuisances from subtitle files, such as <HTML> tags, pesky advertisements, and more with customizable filters.  
-  
+
 **Installation Instructions**  
-Manual install only right now, auto-install coming SOON through UAS (WebTools' Unsupported App Store)  
-https://github.com/ukdtom/WebTools.bundle  
+Manual install or auto-install through UAS (WebTools' Unsupported App Store)  
+https://github.com/ukdtom/WebTools.bundle For more info.
 
 **IMPORTANT: CONFIGURE BEFORE USING**  
 After installing go to http://plex.tv/web/#!/settings/server/ and to your server settings → Agents
