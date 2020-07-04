@@ -2,8 +2,8 @@
 	#
 		#
 			# SUBS CLEANER :: AGENT FOR PLEX
-				# BY [OK] KITSUNE.WORK - 2018
-			# 
+				# BY OSKA.ME - 2018-2020
+			#
 		#
 	#
 #
@@ -18,13 +18,11 @@ import subprocess
 import re
 import codecs
 import chardet
-import urllib
-import urllib2
 import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '0.988'
+PLUGIN_VERSION = '1.00'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -50,6 +48,9 @@ forceEnc		= Prefs['forceEnc']
 
 # VERBOSE LOGGING
 verbLog			= Prefs['verbLog']
+
+# FIX OCR I'S
+fixIs 			= Prefs['fixIs']
 
 # IF FOLLOWING TEXT IS FOUND WITHIN A SUBTITLE, REMOVE SUBTITLE BLOCK
 # GOOD AGAINST SPAM OR ADS
@@ -90,14 +91,6 @@ subFilters 			= tldFilters + customFilters
 
 def Start():
 	Log(':: SUBTITLE CLEANER AGENT LAUNCHED ::')
-	# -----------------------------------------------------------------------------|
-	# PING THE CREATOR OF THIS AGENT TO RECORD USAGE 							   |
-	# NOTHING CREEPY, JUST WANT TO KNOW HOW MUCH TIME TO INVEST 				   |
-	# BASED ON HOW MANY PEOPLE USE MY WORK 										   |
-	# I HAVE TO USE SOME KIND OF UNIQUE IDENTIFIER TO MAKE SURE STATS ARE ACCURATE |
-	# -----------------------------------------------------------------------------|
-	ID 	= HTTP.Request('https://plex.tv/pms/:/ip').content
-	RNG	= HTTP.Request('http://projects.kitsune.work/aTV/SC/ping.php?ID='+str(ID)).content
 
 ####################################################################################################
 
@@ -210,7 +203,7 @@ def cleanSubs(folder, file, MTYPE):
 			if verbLog:
 				Log(':: ORIGINAL FILE FORMATTING :: %s ::', OS)
 	except:
-		Log('/!\ ERROR READING SUBTITLE FILE :: %s /!\\', target)
+		Log('/!\ FAILED TO READ SUBTITLE FILE :: %s /!\\', target)
 
 	if len(data) > 1:
 		cleanData 	= ''
@@ -233,7 +226,7 @@ def cleanSubs(folder, file, MTYPE):
 			for fltr in subFilters:
 				if fltr.decode('utf-8').lower() in wholeBlock.decode('utf-8').lower():
 					# CHECK FOR '../...' SO NOT TO MISTAKE '..ISN'T IT LOVELY' FOR '.IS' (DOMAIN EXT.)
-					if '..' not in wholeBlock and '...' not in wholeBlock:
+					if '..' not in wholeBlock and '...' not in wholeBlock and not skipBlock:
 						if verbLog:
 							Log.Debug(':: REMOVED BLOCK WITH {%s} BECAUSE OF {%s} ::', block.upper(), fltr.upper())
 						skipBlock = True
@@ -247,18 +240,16 @@ def cleanSubs(folder, file, MTYPE):
 					if (subLine.isdigit()) or (re.match('\d{2}:\d{2}:\d{2}', subLine)):
 						cleanData += subLine+os.linesep
 					else:
+						# LOWERCASE FOR EASIER PROCESSING
+						subLine = subLine.lower()
 						# REMOVE HTML TAGS FROM SUBTITLE
 						if removeHTML:
 							subLine = remHTML(subLine)
-						# FIX SUBTITLES THAT ARE IN ALL CAPS
-						if fixCaps:
-							subLine = subLine.capitalize()
-						# IF ALL CAPS ENABLED
-						if allCaps:
-							subLine = subLine.upper()
 						# REMOVE HEARING IMPAIRED CAPTIONS
 						if remHI:
 							subLine =  re.sub("[\(\[].*?[\)\]]", "", subLine)
+							# ALSO REMOVE DIALOGUE INDICATIONS LIKE 'NAME:'
+							# REMOVE WHAT IS BEFORE THE : (INC. IT) AND THE FIRST SPACE BEFORE..
 							# REMOVE FIRST SPACE IF PRESENT
 							if subLine[:1] is ' ':
 								subLine = subLine[1:]
@@ -276,13 +267,22 @@ def cleanSubs(folder, file, MTYPE):
 						# REMOVE CERTAIN SYMBOLS FROM LINES BUT LEAVE THE REST INTACT
 						if remSym:
 							for sym in remSym:
-								# ATTEMPT TO CONVERT KEYWORD TO ENCODE LANGUAGE 
+								# ATTEMPT TO CONVERT KEYWORD TO ENCODE LANGUAGE
 								if sym in subLine:
 									if verbLog:
-										Log.Debug(':: REMOVED %s FROM %s ::', sym, subLine)
-									subLine = subLine.replace(sym, '')	
+										Log.Debug(':: REMOVED {%s} FROM {%s} ::', sym, subLine)
+									subLine = subLine.replace(sym, '')
+						# FIX OCR ISSUES
+						if fixIs:
+							subLine = subLine.replace(' l ',' I ').replace("l'll","I'll").replace("l've","I've").replace("l'm","I'm").replace("lt's","it's");
 						# REMOVE SPACES BEFORE EACH SENTENCE
 						subLine = subLine.strip()
+						# FIX SUBTITLES THAT ARE IN ALL CAPS
+						if fixCaps:
+							subLine = subLine.capitalize()
+						# IF ALL CAPS ENABLED
+						if allCaps:
+							subLine = subLine.upper()
 						# REMOVE DASHES IN FRONT OF LINES
 						if removeDashes:
 							if subLine.startswith('-') or subLine.startswith(' '):
@@ -300,7 +300,7 @@ def cleanSubs(folder, file, MTYPE):
 							if curLine < len(blockLines):
 								cleanData += subLine+os.linesep
 							else:
-								cleanData += subLine			
+								cleanData += subLine
 				# :: APPEND LINE BETWEEN NEXT BLOCK
 				cleanData += os.linesep+os.linesep
 			# IF BLOCK WAS REMOVED ADD EMPTY BLOCK TO KEEP FORMATTING CORRECT
@@ -324,7 +324,7 @@ def cleanSubs(folder, file, MTYPE):
 		Log(':: SCRUBBED :: %s :: %s', target.upper(), len(cleanData))
 		Log('----------------------------------------------------------------------------------')
 	else:
-		Log('/!\ COULD NOT PROCESS :: %s /!\\', target)
+		Log('/!\ FAILED TO READ SUBTITLE FILE :: %s /!\\', target)
 
 ####################################################################################################
 

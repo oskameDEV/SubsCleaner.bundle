@@ -42,6 +42,12 @@
     "default" : "'#','~','_'"
   },
   {
+    "id"      : "fixIs",
+    "label"   : "FIX OCR ISSUES WITH I'S",
+    "type"    : "bool",
+    "default" : "true"
+  },
+  {
     "id"      : "customFilters",
     "label"   : "LIST OF WORDS THAT WILL FORCE SENTENCE TO BE REMOVED\n\nDue to a limitation in Plex it's impossible to save any accents into a preference field.\n\nYou will need to convert any word or special symbol (the entire keyword is fine)\n\nUse this simple converter to do so: https://is.gd/0subs",
     "type"    : "text",
