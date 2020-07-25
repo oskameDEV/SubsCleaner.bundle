@@ -23,7 +23,7 @@ import pipes
 
 ####################################################################################################
 
-PLUGIN_VERSION = '1.00'
+PLUGIN_VERSION = '1.11'
 
 # :: USER CONFIGURED FILTERS ::
 # CLEAN HTML FROM SUBTITLES
@@ -275,7 +275,10 @@ def cleanSubs(folder, file, MTYPE):
 									subLine = subLine.replace(sym, '')
 						# FIX OCR ISSUES
 						if fixIs:
-							subLine = subLine.replace(' l ',' I ').replace("l'll","I'll").replace("l've","I've").replace("l'm","I'm").replace("lt's","it's").replace('l ','I ', 1);
+							subLine = subLine.replace(' l ',' I ').replace("l'll","I'll").replace("l've","I've").replace("l'm","I'm").replace("lt's","it's")
+							# IF L AT BEGINNING
+							if subLine.startswith('l '):
+							    subLine = subLine.replace('l ','I ', 1)
 						# REMOVE SPACES BEFORE EACH SENTENCE
 						subLine = subLine.strip()
 						# FIX SUBTITLES THAT ARE IN ALL CAPS
